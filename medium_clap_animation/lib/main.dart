@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return new MaterialApp(
       title: 'Clap animation',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'Medium Clap Animation'),
+      home: new MyHomePage(title: 'Medium Clap Animation'),
     );
   }
 }
@@ -28,17 +29,15 @@ class _MyHomePageState extends State<MyHomePage> {
   final duration = new Duration(milliseconds: 300);
   Timer timer;
 
-  @override
   void initState() {
     super.initState();
   }
 
-  @override
   void dispose() {
     super.dispose();
   }
 
-  void _increment(Timer t) {
+  void increment(Timer t) {
     setState(() {
       _counter++;
     });
@@ -100,8 +99,8 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return new Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
+      appBar: new AppBar(
+        title: new Text(widget.title),
       ),
       body: new Center(
         child: new Column(
