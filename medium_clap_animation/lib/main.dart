@@ -24,13 +24,40 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+enum ScoreWidgetStatus {
+  HIDDEN,
+  BECOMING_VISIBLE,
+  VISIBLE,
+  BECOMING_INVISIBLE
+}
+
+class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   int _counter = 0;
   final duration = new Duration(milliseconds: 300);
-  Timer timer;
+  Timer timer, holdTimer, scoreOutETA;
+  AnimationController scoreInAnimationController, scoreOutAnimationController;
+  CurvedAnimation bounceInAnimation;
+  ScoreWidgetStatus _scoreWidgetStatus;
 
   void initState() {
     super.initState();
+    scoreInAnimationController = new AnimationController(vsync: this, duration: new Duration(milliseconds: 150));
+    scoreInAnimationController.addListener(() {
+      setState(() {});
+    });
+    scoreInAnimationController.forward(from: 0.0);
+    scoreOutAnimationController = new Tween(begin: 100.0, end: 150.0).animate(
+      new CurvedAnimation(parent: scoreInAnimationController, curve: Curves.easeOut)
+    );
+    scoreOutAnimationController.addListener(() {
+      setState(() {});
+    });
+    scoreOutAnimationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _scoreWidgetStatus = ScoreWidgetStatus.HIDDEN;
+      }
+    });
+    bounceInAnimation = new CurvedAnimation(parent: scoreInAnimationController, curve: Curves.bounceIn);
   }
 
   void dispose() {
@@ -46,15 +73,40 @@ class _MyHomePageState extends State<MyHomePage> {
   void onTapDown(TapDownDetails tap) {
     increment(null);
     timer = new Timer.periodic(duration, increment);
+    if (scoreOutETA != null) scoreOutETA.cancel();
+    if (_scoreWidgetStatus != null) {
+      scoreInAnimationController.forward(from: 0.0);
+      _scoreWidgetStatus = ScoreWidgetStatus.BECOMING_VISIBLE;
+    }
+    increment(null);
+    holdTimer = new Timer.periodic(duration, increment);
   }
 
   void onTapUp(TapUpDetails tap) {
-    timer.cancel();
+    scoreOutETA = new Timer(duration, () {
+      scoreOutAnimationController.forward(from: 0.0);
+      _scoreWidgetStatus = ScoreWidgetStatus.BECOMING_INVISIBLE;
+    });
+    holdTimer.cancel();
   }
 
   Widget getScoreButton() {
+    var scorePosition = 0.0;
+    var scoreOpacity = 0.0;
+    switch(_scoreWidgetStatus) {
+      case ScoreWidgetStatus.VISIBLE:
+      case ScoreWidgetStatus.HIDDEN:
+        break;
+      case ScoreWidgetStatus.BECOMING_VISIBLE:
+        scorePosition = scoreInAnimationController.value * 100;
+        scoreOpacity = scoreInAnimationController.value;
+        break;
+      case ScoreWidgetStatus.BECOMING_INVISIBLE:
+        scorePosition = scoreInAnimationController.value;
+        scoreOpacity = 1.0 - scoreInAnimationController.value;
+    }
     return new Positioned(
-      child: new Opacity(opacity: 1.0, child: new Container(
+      child: new Opacity(opacity: scoreOpacity, child: new Container(
         height: 50.0,
         width: 50.0,
         decoration: new ShapeDecoration(
@@ -74,7 +126,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ),
       )),
-      bottom: 100.0,
+      bottom: scorePosition,
     );
   }
 
