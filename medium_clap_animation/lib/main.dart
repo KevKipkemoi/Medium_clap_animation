@@ -72,7 +72,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   void onTapDown(TapDownDetails tap) {
     increment(null);
-    timer = new Timer.periodic(duration, increment);
     if (scoreOutETA != null) scoreOutETA.cancel();
     if (_scoreWidgetStatus != null) {
       scoreInAnimationController.forward(from: 0.0);
