@@ -35,7 +35,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   int _counter = 0;
   final duration = new Duration(milliseconds: 300);
   Timer timer, holdTimer, scoreOutETA;
-  AnimationController scoreInAnimationController, scoreOutAnimationController;
+  AnimationController scoreInAnimationController, scoreOutAnimationController, scoreSizeAnimationController;
   CurvedAnimation bounceInAnimation;
   ScoreWidgetStatus _scoreWidgetStatus;
 
@@ -58,6 +58,15 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       }
     });
     bounceInAnimation = new CurvedAnimation(parent: scoreInAnimationController, curve: Curves.bounceIn);
+    scoreSizeAnimationController = new AnimationController(vsync: this, duration: new Duration(milliseconds: 150));
+    scoreSizeAnimationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        scoreSizeAnimationController.reverse();
+      }
+    });
+    scoreSizeAnimationController.addListener(() {
+      setState(() {});
+    });
   }
 
   void dispose() {
@@ -65,6 +74,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   }
 
   void increment(Timer t) {
+    scoreSizeAnimationController.forward(from: 0.0);
     setState(() {
       _counter++;
     });
