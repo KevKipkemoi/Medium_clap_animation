@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:math';
 
 void main() => runApp(MyApp());
 
@@ -33,13 +34,16 @@ enum ScoreWidgetStatus {
 
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   int _counter = 0;
+  double _sparklesAngle = 0.0;
   final duration = new Duration(milliseconds: 300);
   final oneSecond = new Duration(seconds: 1);
   Timer timer, holdTimer, scoreOutETA;
-  AnimationController scoreInAnimationController, scoreOutAnimationController, scoreSizeAnimationController;
-  Animation scoreOutPositionAnimation;
+  AnimationController scoreInAnimationController, scoreOutAnimationController,
+      scoreSizeAnimationController, sparklesAnimationController;
+  Animation scoreOutPositionAnimation, sparklesAnimation;
   CurvedAnimation bounceInAnimation;
-  ScoreWidgetStatus _scoreWidgetStatus;
+  Random random;
+  ScoreWidgetStatus _scoreWidgetStatus = ScoreWidgetStatus.HIDDEN;
 
   void initState() {
     super.initState();
@@ -47,6 +51,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     scoreInAnimationController.addListener(() {
       setState(() {});
     });
+
     scoreOutAnimationController = new AnimationController(vsync: this, duration: duration);
     scoreOutPositionAnimation = new Tween(begin: 100.0, end: 150.0).animate(
       new CurvedAnimation(parent: scoreOutAnimationController, curve: Curves.easeOut)
@@ -59,7 +64,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         _scoreWidgetStatus = ScoreWidgetStatus.HIDDEN;
       }
     });
-    bounceInAnimation = new CurvedAnimation(parent: scoreInAnimationController, curve: Curves.bounceIn);
+
     scoreSizeAnimationController = new AnimationController(vsync: this, duration: new Duration(milliseconds: 150));
     scoreSizeAnimationController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -67,6 +72,12 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       }
     });
     scoreSizeAnimationController.addListener(() {
+      setState(() {});
+    });
+
+    sparklesAnimationController = new AnimationController(vsync: this, duration: duration);
+    sparklesAnimation = new CurvedAnimation(parent: sparklesAnimationController, curve: Curves.easeIn);
+    sparklesAnimation.addListener(() {
       setState(() {});
     });
   }
@@ -79,13 +90,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   void increment(Timer t) {
     scoreSizeAnimationController.forward(from: 0.0);
+    sparklesAnimationController.forward(from: 0.0);
     setState(() {
       _counter++;
+      _sparklesAngle = random.nextDouble() * (2*pi);
     });
   }
 
   void onTapDown(TapDownDetails tap) {
-    increment(null);
     if (scoreOutETA != null) scoreOutETA.cancel();
     if (_scoreWidgetStatus == ScoreWidgetStatus.BECOMING_INVISIBLE) {
       scoreOutAnimationController.stop(canceled: true);
@@ -117,41 +129,71 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       case ScoreWidgetStatus.VISIBLE:
         scorePosition = scoreInAnimationController.value * 100;
         scoreOpacity = scoreInAnimationController.value;
-        extraSize = scoreInAnimationController.value * 100;
+        extraSize = scoreSizeAnimationController.value * 3;
         break;
       case ScoreWidgetStatus.BECOMING_INVISIBLE:
         scorePosition = scoreOutPositionAnimation.value;
         scoreOpacity = 1.0 - scoreOutAnimationController.value;
     }
-    return new Positioned(
-      child: new Opacity(opacity: scoreOpacity, child: new Container(
-        height: 50.0 + extraSize,
-        width: 50.0 + extraSize,
-        decoration: new ShapeDecoration(
-            shape: new CircleBorder(
-              side: BorderSide.none
-            ),
+
+    var stackChildren = <Widget>[];
+    var firstAngle = _sparklesAngle;
+    var sparkleRadius = (sparklesAnimationController.value * 50);
+    var sparklesOpacity = (1 - sparklesAnimation.value);
+
+    for (int i = 0; i < 5; ++i) {
+      var currentAngle = (firstAngle + ((2*pi)/5)*(i));
+      var sparklesWidget =
+        new Positioned(
+          child: new Transform.rotate(
+            angle: currentAngle - pi/2,
+            child: new Opacity(
+              opacity: sparklesOpacity,
+              child: new Image.asset("images/sparkles.png", width: 14.0, height: 14.0)),
+          ),
+          left: (sparkleRadius * cos(currentAngle)) + 20,
+          top: (sparkleRadius * sin(currentAngle)) + 20,
+        );
+      stackChildren.add(sparklesWidget);
+    }
+    stackChildren.add(
+      new Opacity(
+        opacity: scoreOpacity,
+        child: new Container(
+          height: 50.0 + extraSize,
+          width: 50.0 + extraSize,
+          decoration: new ShapeDecoration(
+            shape: CircleBorder(side: BorderSide.none),
             color: Colors.pink,
-        ), // ShapeDirection
-        child: new Center(
-          child: new Text(
-            "+" + _counter.toString(),
-            style: new TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 15.0
-            ), // TextStyle
+          ),
+          child: new Center(
+            child: new Text(
+              "+" + _counter.toString(),
+              style: new TextStyle(
+                color: Colors.white,
+                fontSize: 15.0,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
-      )),
+      )
+    );
+    var widget = new Positioned(
+      child: new Stack(
+        alignment: FractionalOffset.center,
+        overflow: Overflow.visible,
+        children: stackChildren,
+      ),
       bottom: scorePosition,
     );
+    return widget;
   }
 
   Widget getClapButton() {
     var extraSize = 0.0;
     if (_scoreWidgetStatus == ScoreWidgetStatus.VISIBLE || _scoreWidgetStatus == ScoreWidgetStatus.BECOMING_VISIBLE) {
-      extraSize = scoreSizeAnimationController.value * 10;
+      extraSize = scoreSizeAnimationController.value * 3;
     }
     return new GestureDetector(
       onTapDown: onTapDown,
