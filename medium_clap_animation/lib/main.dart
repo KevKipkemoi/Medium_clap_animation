@@ -34,8 +34,10 @@ enum ScoreWidgetStatus {
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   int _counter = 0;
   final duration = new Duration(milliseconds: 300);
+  final oneSecond = new Duration(seconds: 1);
   Timer timer, holdTimer, scoreOutETA;
   AnimationController scoreInAnimationController, scoreOutAnimationController, scoreSizeAnimationController;
+  Animation scoreOutPositionAnimation;
   CurvedAnimation bounceInAnimation;
   ScoreWidgetStatus _scoreWidgetStatus;
 
@@ -45,11 +47,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     scoreInAnimationController.addListener(() {
       setState(() {});
     });
-    scoreInAnimationController.forward(from: 0.0);
-    scoreOutAnimationController = new Tween(begin: 100.0, end: 150.0).animate(
-      new CurvedAnimation(parent: scoreInAnimationController, curve: Curves.easeOut)
+    scoreOutAnimationController = new AnimationController(vsync: this, duration: duration);
+    scoreOutPositionAnimation = new Tween(begin: 100.0, end: 150.0).animate(
+      new CurvedAnimation(parent: scoreOutAnimationController, curve: Curves.easeOut)
     );
-    scoreOutAnimationController.addListener(() {
+    scoreOutPositionAnimation.addListener(() {
       setState(() {});
     });
     scoreOutAnimationController.addStatusListener((status) {
@@ -71,6 +73,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   void dispose() {
     super.dispose();
+    scoreInAnimationController.dispose();
+    scoreOutAnimationController.dispose();
   }
 
   void increment(Timer t) {
@@ -83,16 +87,19 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   void onTapDown(TapDownDetails tap) {
     increment(null);
     if (scoreOutETA != null) scoreOutETA.cancel();
-    if (_scoreWidgetStatus != null) {
-      scoreInAnimationController.forward(from: 0.0);
+    if (_scoreWidgetStatus == ScoreWidgetStatus.BECOMING_INVISIBLE) {
+      scoreOutAnimationController.stop(canceled: true);
+      _scoreWidgetStatus = ScoreWidgetStatus.VISIBLE;
+    } else if (_scoreWidgetStatus == ScoreWidgetStatus.HIDDEN) {
       _scoreWidgetStatus = ScoreWidgetStatus.BECOMING_VISIBLE;
+      scoreInAnimationController.forward(from: 0.0);
     }
     increment(null);
     holdTimer = new Timer.periodic(duration, increment);
   }
 
   void onTapUp(TapUpDetails tap) {
-    scoreOutETA = new Timer(duration, () {
+    scoreOutETA = new Timer(oneSecond, () {
       scoreOutAnimationController.forward(from: 0.0);
       _scoreWidgetStatus = ScoreWidgetStatus.BECOMING_INVISIBLE;
     });
@@ -102,22 +109,24 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   Widget getScoreButton() {
     var scorePosition = 0.0;
     var scoreOpacity = 0.0;
+    var extraSize = 0.0;
     switch(_scoreWidgetStatus) {
-      case ScoreWidgetStatus.VISIBLE:
+      case ScoreWidgetStatus.BECOMING_VISIBLE:
       case ScoreWidgetStatus.HIDDEN:
         break;
-      case ScoreWidgetStatus.BECOMING_VISIBLE:
+      case ScoreWidgetStatus.VISIBLE:
         scorePosition = scoreInAnimationController.value * 100;
         scoreOpacity = scoreInAnimationController.value;
+        extraSize = scoreInAnimationController.value * 100;
         break;
       case ScoreWidgetStatus.BECOMING_INVISIBLE:
-        scorePosition = scoreInAnimationController.value;
-        scoreOpacity = 1.0 - scoreInAnimationController.value;
+        scorePosition = scoreOutPositionAnimation.value;
+        scoreOpacity = 1.0 - scoreOutAnimationController.value;
     }
     return new Positioned(
       child: new Opacity(opacity: scoreOpacity, child: new Container(
-        height: 50.0,
-        width: 50.0,
+        height: 50.0 + extraSize,
+        width: 50.0 + extraSize,
         decoration: new ShapeDecoration(
             shape: new CircleBorder(
               side: BorderSide.none
@@ -140,12 +149,16 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   }
 
   Widget getClapButton() {
+    var extraSize = 0.0;
+    if (_scoreWidgetStatus == ScoreWidgetStatus.VISIBLE || _scoreWidgetStatus == ScoreWidgetStatus.BECOMING_VISIBLE) {
+      extraSize = scoreSizeAnimationController.value * 10;
+    }
     return new GestureDetector(
       onTapDown: onTapDown,
       onTapUp: onTapUp,
       child: new Container(
-        height: 60.0,
-        width: 60.0,
+        height: 60.0 + extraSize,
+        width: 60.0 + extraSize,
         padding: new EdgeInsets.all(10.0),
         decoration: new BoxDecoration(
           border: new Border.all(color: Colors.pink, width: 1.0),
